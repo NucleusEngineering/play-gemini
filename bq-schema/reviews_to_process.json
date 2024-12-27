@@ -1,0 +1,31 @@
+[
+    {
+        "name": "app_name",
+        "type": "STRING",
+        "mode": "REQUIRED"
+    },    
+    {
+      "name": "gemini_response",
+      "type": "STRING",
+      "mode": "NULLABLE",
+      "description": "The response from the Gemini model"
+    },
+    {
+      "name": "created_at",
+      "type": "TIMESTAMP",
+      "mode": "REQUIRED",
+      "description": "Timestamp of creation"
+    },
+    {
+      "name": "processed_at",
+      "type": "TIMESTAMP",
+      "mode": "NULLABLE",
+      "description": "Timestamp of when this list was post-processed. If NULL then never."
+    },
+    {
+      "name": "version",
+      "type": "STRING",
+      "mode": "NULLABLE",
+      "description": "Version of the data"
+    }
+  ]
