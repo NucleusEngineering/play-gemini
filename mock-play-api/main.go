@@ -1,3 +1,17 @@
+// Copyright 2024 Google LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      https://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package main
 
 import (
@@ -23,13 +37,8 @@ const (
 )
 
 var (
-	scriptRegex  = regexp.MustCompile(`AF_initDataCallback(.*?)</script`)
-	keyRegex     = regexp.MustCompile(`(ds:.*?)'`)
-	valueRegex   = regexp.MustCompile(`data:(\[.*?\]), sideChannel: {}}\);`)
-	reviewsRegex = regexp.MustCompile(`\)]}'\n\n([\s\S]+)`)
-
-	appDetailsURLFormat = playStoreBaseURL + "/store/apps/details?id=%s&hl=%s&gl=%s"
-	reviewsURLFormat    = playStoreBaseURL + "/_/PlayStoreUi/data/batchexecute?hl=%s&gl=%s"
+	reviewsRegex     = regexp.MustCompile(`\)]}'\n\n([\s\S]+)`)
+	reviewsURLFormat = playStoreBaseURL + "/_/PlayStoreUi/data/batchexecute?hl=%s&gl=%s"
 )
 
 var reviewSpecs = map[string]*ElementSpec{
@@ -67,10 +76,9 @@ func FetchReviews(ctx context.Context, appID, lang, country string, sort Sort, c
 	url := fmt.Sprintf(reviewsURLFormat, lang, country)
 
 	fetchCount := count
-	maxCountEachFetch := 4500
+	maxCountEachFetch := 1000
 	if continuationToken != nil {
 		maxCountEachFetch = continuationToken.MaxCountEachFetch
-
 	}
 	result := []map[string]interface{}{}
 
@@ -123,7 +131,7 @@ func FetchReviews(ctx context.Context, appID, lang, country string, sort Sort, c
 				Count:             count,
 				FilterScoreWith:   filterScoreWith,
 				FilterDeviceWith:  filterDeviceWith,
-				MaxCountEachFetch: 4500,
+				MaxCountEachFetch: 1000,
 			}
 		} else {
 			continuationToken.Token = token
@@ -191,7 +199,7 @@ func fetchReviewItems(ctx context.Context, fetchUrl, appID string, sort Sort, co
 		return nil, "", err
 	}
 
-	if len(response) == 0 || len(response[0].([]interface{})) == 0 {
+	if len(response) == 0 || len(response[0].([]interface{})) == 0 || response[0].([]interface{})[2] == nil {
 		return nil, "", nil
 	}
 
@@ -252,10 +260,10 @@ func transformReviews(reviewData []map[string]interface{}, pageInfo map[string]i
 		t, err := time.Parse(time.RFC3339, timestampStr)
 		if err != nil {
 			fmt.Printf("Error parsing timestamp: %s. Defaulting to Now()\n", err)
+		} else {
+			// Get the Unix timestamp (seconds since the Unix epoch).
+			unixTimestamp = t.Unix()
 		}
-
-		// Get the Unix timestamp (seconds since the Unix epoch).
-		unixTimestamp = t.Unix()
 
 		transformed.Reviews = append(transformed.Reviews, TransformedReview{
 			ReviewID:   review["reviewId"].(string),
@@ -332,7 +340,7 @@ func reviewsHandler(w http.ResponseWriter, r *http.Request) {
 
 	var ct *ContinuationToken
 	if pageToken != "" {
-		ct = &ContinuationToken{Token: pageToken, Lang: lang, Country: country, Sort: 2, Count: count, FilterScoreWith: filterScoreWith, FilterDeviceWith: nil}
+		ct = &ContinuationToken{Token: pageToken, Lang: lang, Country: country, Sort: 2, Count: count, FilterScoreWith: filterScoreWith, FilterDeviceWith: nil, MaxCountEachFetch: 1000}
 	}
 
 	result, continuationToken, err := FetchReviews(context.Background(), appID, lang, country, Newest, count, filterScoreWith, nil, ct)
@@ -357,38 +365,6 @@ func reviewsHandler(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	fmt.Fprint(w, jsonOutput)
-}
-
-func get(ctx context.Context, url string) ([]byte, error) {
-
-	client := &http.Client{}
-
-	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	resp, err := client.Do(req)
-	if err != nil {
-		fmt.Printf("Failed to make POST request: %v", err)
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	body, err := io.ReadAll(resp.Body)
-
-	if err != nil {
-		fmt.Printf("Failed to read response body: %v", err)
-		return nil, err
-	}
-
-	if resp.StatusCode == http.StatusNotFound {
-		return nil, fmt.Errorf("app not found (404)")
-	} else if resp.StatusCode >= http.StatusBadRequest {
-		return nil, fmt.Errorf("http error %d", resp.StatusCode)
-	}
-
-	return body, nil
 }
 
 func post(ctx context.Context, url string, data url.Values, headers map[string]string) ([]byte, error) {

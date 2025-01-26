@@ -1,35 +1,23 @@
+// Copyright 2024 Google LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      https://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package main
 
 import (
 	"errors"
-	"html"
-	"strings"
 	"time"
 )
-
-func processHistogram(container interface{}) interface{} {
-	if data, ok := container.([]interface{}); ok && len(data) > 5 {
-		return []int{
-			toInt(data[1]),
-			toInt(data[2]),
-			toInt(data[3]),
-			toInt(data[4]),
-			toInt(data[5]),
-		}
-	}
-	return []int{0, 0, 0, 0, 0}
-}
-
-func processPrice(price interface{}) interface{} {
-	if p, ok := price.(float64); ok {
-		return p / 1000000
-	}
-	return 0
-}
-
-func processFreeFlag(flag interface{}) interface{} {
-	return flag == 0
-}
 
 func datetimeFromTimestamp(val interface{}) any {
 	ts, ok := val.(float64)
@@ -37,21 +25,6 @@ func datetimeFromTimestamp(val interface{}) any {
 		return ""
 	}
 	return time.Unix(int64(ts), 0).Format(time.RFC3339)
-}
-
-func toInt(val interface{}) int {
-	if v, ok := val.(float64); ok {
-		return int(v)
-	}
-	return 0
-}
-
-func ptr(i int) *int {
-	return &i
-}
-
-func unescapeText(s interface{}) interface{} {
-	return html.UnescapeString(strings.ReplaceAll(s.(string), "<br>", "\r\n"))
 }
 
 func nestedLookup(source map[int]interface{}, indexes []int) (interface{}, error) {
