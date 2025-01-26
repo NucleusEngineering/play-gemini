@@ -11,7 +11,7 @@ This project fetches Google Play Store app reviews, stores them in BigQuery, and
 
 ## Project Architecture
 
-![Project Architecture](assets/play-gemini-architecture.png "Project Architecture")
+![Project Architecture](assets/project-architecture.png)
 
 ## Setup
 
