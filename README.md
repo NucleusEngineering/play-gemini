@@ -32,3 +32,9 @@ The program will guide you through the process:
 2. The program will fetch reviews from the mock API (or the real API if you modify the code).
 3. It will push the raw reviews to BigQuery.
 4. It will then use a BigQuery stored procedure to process the reviews
+
+## Licence
+
+Apache 2.0
+
+This is not an officially supported Google product

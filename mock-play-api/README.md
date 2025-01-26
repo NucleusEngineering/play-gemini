@@ -16,4 +16,8 @@ Me - [Nikolai Danylchyk](https://www.linkedin.com/in/nikolai-dan/)
 
 Speical thanks to [Benjamin Altpeter](https://mastodon.social/@baltpeter) for his amazing work [reverse engineering](https://mastodon.social/@baltpeter/108489492199400177) Play Store API.
 
+## Licence
 
+Apache 2.0
+
+This is not an officially supported Google product
