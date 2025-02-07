@@ -19,6 +19,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"html/template"
 	"io"
 	"log"
 	"net/http"
@@ -175,6 +176,8 @@ func fetchReviews(packageName string, reviewsToFetch int) []*Review {
 			break
 		}
 
+		fmt.Printf("Fetched %d vs %d\n", fetchedReviews, reviewsToFetch)
+
 		pageToken = reviewsResponse.TokenPagination.NextPageToken
 	}
 
@@ -265,7 +268,7 @@ func getVersions(packageName string) []string {
 	return versions
 }
 
-func getVersionAnalysis(packageName string, version string) {
+func getVersionAnalysis(packageName string, version string) (string, error) {
 	defer bqClient.Close()
 
 	query := bqClient.Query(fmt.Sprintf(`
@@ -293,10 +296,9 @@ func getVersionAnalysis(packageName string, version string) {
 	err = it.Next(&row)
 	if err != nil {
 		if err == io.EOF { // Handle case where no results are returned
-			fmt.Printf("No analysis found for version: %s\n", version)
-			return
+			return "", nil
 		}
-		log.Fatalf("Failed to retrieve next row: %v", err)
+		return "", fmt.Errorf("failed to retrieve next row: %w", err) // Wrap error
 	}
 
 	geminiJSON := row[0].(string)
@@ -308,21 +310,158 @@ func getVersionAnalysis(packageName string, version string) {
 	err = json.Unmarshal([]byte(geminiJSON), &geminiResponse)
 
 	if err != nil {
-		fmt.Printf("%s", geminiJSON)
-		log.Fatalf("Failed to parse JSON: %v", err)
+		return "", fmt.Errorf("failed to parse JSON: %w", err) // Wrap error
 	}
 
-	fmt.Printf("Summary: %s\n", geminiResponse.Summary)
-	fmt.Println("Details:")
-	for _, tag := range geminiResponse.Details {
-		if tag.Tags == "" {
-			continue
-		}
-		fmt.Printf("  Comment ID: %s, Tags: %s\n", tag.CommentID, tag.Tags)
+	// fmt.Printf("Summary: %s\n", geminiResponse.Summary)
+	// fmt.Println("Details:")
+	// for _, tag := range geminiResponse.Details {
+	// 	if tag.Tags == "" {
+	// 		continue
+	// 	}
+	// 	fmt.Printf("  Comment ID: %s, Tags: %s\n", tag.CommentID, tag.Tags)
+	// }
+
+	// Convert to JSON string for returning in the response
+	jsonData, err := json.Marshal(geminiResponse)
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal JSON: %w", err) // Wrap error
+	}
+
+	return string(jsonData), nil // Return JSON string and nil error
+}
+
+func homeHandler(w http.ResponseWriter, r *http.Request) {
+	tmpl := template.Must(template.ParseFiles("templates/index.html")) // Create index.html
+	tmpl.Execute(w, nil)
+}
+
+func fetchHandler(w http.ResponseWriter, r *http.Request) {
+	packageName := r.URL.Query().Get("package_name")
+	if packageName == "" {
+		http.Error(w, "Package name is required", http.StatusBadRequest)
+		return
+	}
+
+	reviews := fetchReviews(packageName, 200)
+	pushToBigQuery(reviews)
+	preProcessReviewsInBigQuery(packageName)
+
+	fmt.Fprintln(w, "Reviews fetched, pushed to BigQuery, and pre-processed successfully!")
+}
+
+func analyzeHandler(w http.ResponseWriter, r *http.Request) {
+	packageName := r.URL.Query().Get("package_name")
+	if packageName == "" {
+		http.Error(w, "Package name is required", http.StatusBadRequest)
+		return
+	}
+
+	versions := getVersions(packageName)
+	if len(versions) == 0 {
+		http.Error(w, "No versions found for this package.", http.StatusNotFound)
+		return
+	}
+
+	// Convert versions to JSON
+	w.Header().Set("Content-Type", "application/json")
+	err := json.NewEncoder(w).Encode(versions) // Directly encode the versions slice
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 }
 
+func versionAnalysisHandler(w http.ResponseWriter, r *http.Request) {
+	packageName := r.URL.Query().Get("package_name")
+	version := r.URL.Query().Get("version")
+
+	if packageName == "" || version == "" {
+		http.Error(w, "Package name and Version are required", http.StatusBadRequest)
+		return
+	}
+
+	jsonData, err := getVersionAnalysis(packageName, version)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError) // Handle error properly
+		return
+	}
+
+	if jsonData == "" { // Handle case where no analysis is found
+		http.Error(w, "No analysis found for this version.", http.StatusNotFound)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	fmt.Fprint(w, jsonData) // Write JSON to response
+}
+
+func commentHandler(w http.ResponseWriter, r *http.Request) {
+	packageName := r.URL.Query().Get("package_name")
+	commentID := r.URL.Query().Get("comment_id")
+
+	if packageName == "" || commentID == "" {
+		http.Error(w, "Package name and comment ID are required", http.StatusBadRequest)
+		return
+	}
+
+	// Query BigQuery for the comment details
+	query := bqClient.Query(fmt.Sprintf(`
+		SELECT *
+		FROM play_store_reviews_demo.raw_reviews
+		WHERE app_name = '%s' AND review_id = '%s'
+	`, packageName, commentID))
+
+	it, err := query.Read(ctx)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Failed to execute query: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	type CommentDetails struct {
+		ReviewID         string    `bigquery:"review_id"`
+		AuthorName       string    `bigquery:"author_name"`
+		AppName          string    `bigquery:"app_name"`
+		Comments         string    `bigquery:"comments"`
+		StarRating       int64     `bigquery:"star_rating"`
+		LastModified     time.Time `bigquery:"last_modified"`
+		ReviewerLanguage string    `bigquery:"reviewer_language"`
+		Version          string    `bigquery:"version"` // Add Version field
+	}
+
+	var commentDetails CommentDetails
+	err = it.Next(&commentDetails)
+	if err != nil {
+		if err == io.EOF {
+			http.Error(w, "Comment not found", http.StatusNotFound)
+			return
+		}
+
+		http.Error(w, fmt.Sprintf("Failed to fetch comment: %v", err), http.StatusInternalServerError)
+
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(commentDetails)
+}
+
 func main() {
+	http.HandleFunc("/", homeHandler)
+	http.HandleFunc("/fetch", fetchHandler)
+	http.HandleFunc("/analyze", analyzeHandler)
+	http.HandleFunc("/versionAnalysis", versionAnalysisHandler)
+	http.HandleFunc("/comment", commentHandler)
+
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8081"
+	}
+
+	log.Printf("Server listening on port %s", port)
+	log.Fatal(http.ListenAndServe(":"+port, nil))
+}
+
+func _main() {
 	reader := bufio.NewReader(os.Stdin)
 
 	fmt.Print("Enter the package name (eg. com.supercell.squad): ")

@@ -6,9 +6,7 @@ BEGIN
   DECLARE gemini_result STRING;
 
   DECLARE p_limit INT64 DEFAULT 100;
-  DECLARE p_offset INT64 DEFAULT 0;
   DECLARE p_page INT64 DEFAULT 0;
-
   DECLARE total_rows INT64;
 
   CREATE TEMP TABLE versions AS
@@ -33,9 +31,9 @@ BEGIN
           AND app_name = package_name
       );
 
-      LOOP
-        SET p_offset = p_limit * p_page;
+      SET p_page = 0;
 
+      LOOP
         -- Construct and execute dynamic query for the current version
         EXECUTE IMMEDIATE FORMAT("""
         SELECT ml_generate_text_llm_result FROM ML.GENERATE_TEXT(MODEL `play_store_reviews_demo.gemini_remote_model15`,
@@ -60,7 +58,7 @@ BEGIN
                   STRUCT('HARM_CATEGORY_SEXUALLY_EXPLICIT' AS category, 'BLOCK_NONE' AS threshold),
                   STRUCT('HARM_CATEGORY_HARASSMENT' AS category, 'BLOCK_NONE' AS threshold)] AS safety_settings)
         );
-        """, current_version, package_name, p_limit, p_offset) INTO gemini_result;
+        """, current_version, package_name, p_limit, (p_limit * p_page)) INTO gemini_result;
         
         INSERT INTO `play_store_reviews_demo.reviews_to_process` (app_name, gemini_response, created_at, processed_at, version)
         VALUES (package_name, gemini_result, CURRENT_TIMESTAMP(), NULL, current_version);

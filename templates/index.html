@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Play Store Review Analyzer</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/default.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+        <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 font-sans">
+
+    <div class="container mx-auto px-4 py-8">
+        <h1 class="text-3xl font-bold mb-4">Play! Store BigQuery &#x1F517; Gemini Reviews processor</h1>
+
+        <div class="mb-4">
+            <label for="package_name" class="block text-gray-700 font-bold mb-2">Package Name:</label>
+            <input type="text" name="package_name" id="package_name" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+        </div>
+
+        <div class="mb-4">
+            <button id="analyzeBtn" class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">
+                Analyze Imported Reviews
+            </button>
+            <button id="fetchBtn" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline mr-2">
+                Fetch New Reviews
+            </button>
+        </div>
+
+        <div id="results" class="hidden mb-4 p-4 bg-white rounded shadow"></div>
+        <div id="versions" class="hidden mb-4 p-4 bg-white rounded shadow"></div>
+        <div id="analysis" class="hidden p-4 bg-white rounded shadow"></div>
+        <div id="comment" class="hidden p-4 bg-white rounded shadow"></div>
+
+    </div>
+
+    <script>
+        const packageNameInput = document.getElementById('package_name');
+        const fetchBtn = document.getElementById('fetchBtn');
+        const analyzeBtn = document.getElementById('analyzeBtn');
+        const resultsDiv = document.getElementById('results');
+        const versionsDiv = document.getElementById('versions');
+        const analysisDiv = document.getElementById('analysis');
+        const commentDiv = document.getElementById('comment');
+
+        fetchBtn.addEventListener('click', () => {
+            resultsDiv.classList.remove("hidden");
+            versionsDiv.classList.add("hidden"); 
+            analysisDiv.classList.add("hidden");
+            commentDiv.classList.add("hidden");            
+
+            const packageName = packageNameInput.value;
+            if (!packageName) {
+                alert('Please enter a package name.');
+                return;
+            }
+
+            resultsDiv.innerHTML = 'Fetching reviews... (please wait, this takes time to process)'; // Indicate fetching
+            fetch('/fetch?package_name=' + packageName) // Changed to GET
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok ' + response.statusText);
+                    }
+                    return response.text(); // Expecting plain text response
+                })
+                .then(data => {
+                    resultsDiv.innerHTML = data;
+                })
+                .catch(error => {
+                    resultsDiv.innerHTML = 'Error: ' + error;
+                });
+        });
+
+        analyzeBtn.addEventListener('click', () => {
+            versionsDiv.classList.remove("hidden");
+            resultsDiv.classList.add("hidden");
+            analysisDiv.classList.add("hidden");
+            commentDiv.classList.add("hidden");            
+
+            const packageName = packageNameInput.value;
+            if (!packageName) {
+                alert('Please enter a package name.');
+                return;
+            }
+
+            versionsDiv.innerHTML = 'Fetching versions...';
+            fetch('/analyze?package_name=' + packageName)
+            .then(response => {
+                if (!response.ok) {
+                throw new Error('Network response was not ok');
+                }
+                return response.json(); // Expect JSON response now
+            })
+            .then(versions => {
+                // Process the versions JSON data
+                let output = `<h3><strong>${packageName}</strong> has comments from the following versions:</h3><br>`;
+                output += "<ul>"; // Create a list for versions
+                versions.forEach(version => {
+                    output += `<li><a href="#" data-version="${version}" class="text-blue-500 hover:underline cursor-pointer">${version}</a></li>`; // Style as links
+                });
+                output += "</ul>";
+                versionsDiv.innerHTML = output;
+
+
+                // Add event listeners to version links *after* they are added to the DOM:
+                const versionLinks = versionsDiv.querySelectorAll('a');
+                versionLinks.forEach(link => {
+                    link.addEventListener('click', (event) => {
+                        commentDiv.classList.add("hidden");            
+                        event.preventDefault();
+                        const version = link.dataset.version; // Get the version from the data attribute
+                        displayAnalysis(packageName, version);
+                    });
+                });
+
+            })
+            .catch(error => {
+                versionsDiv.innerHTML = 'Error: ' + error;
+            });
+        });
+
+        function displayAnalysis(packageName, version) {
+            analysisDiv.classList.remove("hidden"); // Show analysis div
+            analysisDiv.innerHTML = 'Fetching analysis...';
+
+            fetch(`/versionAnalysis?package_name=${packageName}&version=${version}`)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+                    return response.json(); // Expecting JSON response
+                })
+                .then(data => {
+                    let output = `<h3>Analysis for ${packageName} version ${version}:</h3><br>`;
+
+                    output += `<div class="mb-4">
+                                    <h2 class="text-lg font-semibold">Summary:</h2>
+                                    <p>${data.summary}</p>
+                                </div>`;
+
+                    output += `<div class="mb-4">
+                                <h2 class="text-lg font-semibold">Details:</h2>
+                                <ul class="list-none">`; // Better list styling
+                    data.details.forEach(detail => {
+                        if (detail.tags) {
+                            output += `<li class="border-b border-gray-200 py-2 group">`; 
+                            output += `<p class="font-medium"><a href="#" data-comment-id="${detail.comment_id}" class="comment-link text-blue-500 hover:underline">Comment ID: ${detail.comment_id}</a></p>
+                                        <p class="italic text-gray-600 group-hover:text-blue-500 transition-colors">Tags: ${detail.tags}</p>`;
+                            output +=  `</li>`;
+                        }
+                    });
+                    output += "</ul></div>";
+
+
+                    analysisDiv.innerHTML = output;
+
+                    // Add event listeners to comment links *after* they are added to the DOM:
+                    const commentLinks = analysisDiv.querySelectorAll('.comment-link');
+                        commentLinks.forEach(link => {
+                            link.addEventListener('click', (event) => {
+                                event.preventDefault();
+                                const commentId = link.dataset.commentId;
+                                fetchComment(packageName, commentId);
+                            });
+                        });
+
+
+                })
+                .catch(error => {
+                    analysisDiv.innerHTML = 'Error: ' + error;
+                });
+        }
+
+        function fetchComment(packageName, commentId) {
+            const commentDiv = document.getElementById('comment');
+            commentDiv.classList.remove("hidden");
+            commentDiv.innerHTML = 'Fetching comment...';
+
+            fetch(`/comment?package_name=${packageName}&comment_id=${commentId}`)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    // Prettify JSON output using highlight.js
+                    const formattedJSON = hljs.highlight(JSON.stringify(data, null, 2), {language: 'json'}).value;
+                    commentDiv.innerHTML = `<pre><code class="json">${formattedJSON}</code></pre>`;
+                })
+                .catch(error => {
+                    commentDiv.innerHTML = 'Error: ' + error;
+                });
+        }        
+
+    </script>
+
+</body>
+</html>
