@@ -15,7 +15,6 @@
 package main
 
 import (
-	"bufio"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -459,61 +458,4 @@ func main() {
 
 	log.Printf("Server listening on port %s", port)
 	log.Fatal(http.ListenAndServe(":"+port, nil))
-}
-
-func _main() {
-	reader := bufio.NewReader(os.Stdin)
-
-	fmt.Print("Enter the package name (eg. com.supercell.squad): ")
-	packageName, err := reader.ReadString('\n')
-	if err != nil {
-		log.Fatalf("Error reading input: %v", err)
-	}
-	packageName = strings.TrimSpace(packageName)
-
-	fmt.Printf("Fetching reviews for \"%s\"\n", packageName)
-	reviews := fetchReviews(packageName, 50)
-
-	fmt.Printf("Pushing %d reviews to Bigquery\n", len(reviews))
-	pushToBigQuery(reviews)
-
-	fmt.Printf("Processing reviews with gemini for \"%s\"\n", packageName)
-	preProcessReviewsInBigQuery(packageName)
-
-	versions := getVersions(packageName)
-
-	if len(versions) == 0 {
-		fmt.Println("No versions found for this package.")
-		return
-	}
-
-	fmt.Println("Available versions:")
-	for i, version := range versions {
-		fmt.Printf("%d. %s\n", i+1, version)
-	}
-
-	reader = bufio.NewReader(os.Stdin)
-	for {
-		fmt.Print("Enter the number of the version to analyze (or 0 to exit): ")
-		choiceStr, err := reader.ReadString('\n')
-		if err != nil {
-			log.Fatalf("Error reading input: %v", err)
-		}
-		choiceStr = strings.TrimSpace(choiceStr)
-		choice, err := strconv.Atoi(choiceStr)
-		if err != nil || choice < 0 || choice > len(versions) {
-			fmt.Println("Invalid choice. Please enter a valid number.")
-			continue
-		}
-
-		if choice == 0 {
-			break // Exit the loop if the user enters 0
-		}
-
-		selectedVersion := versions[choice-1]
-		fmt.Printf("Version \"%s\" analysis:\n", selectedVersion)
-		getVersionAnalysis(packageName, selectedVersion)
-		fmt.Println("---")
-		break // Exit the loop after displaying the chosen version
-	}
 }
