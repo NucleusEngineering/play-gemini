@@ -26,7 +26,7 @@ You will also need to create a [connection to Vertex AI](https://cloud.google.co
 
 
     ```
-    CREATE OR REPLACE MODEL `dn-demos.play_store_reviews_demo.gemini_model`
+    CREATE OR REPLACE MODEL `your-project-id.play_store_reviews_demo.gemini_model`
     REMOTE WITH CONNECTION `us.gemini_analysis`
     OPTIONS (ENDPOINT = 'gemini-2.0-flash-001');
     ```
@@ -34,6 +34,12 @@ You will also need to create a [connection to Vertex AI](https://cloud.google.co
 5. **Run the Mock API (optional):** Navigate to the `mock-play-api` directory and run `go build . && ./mock-play-api`. This starts a local server that mocks the Play Store API.
 6. **Run the Main Program:** Navigate to the root directory of this project and run `go run main.go`.  The program will prompt you for the package name and then fetch, process, and analyze the reviews.
 
+## Deployment in Google Cloud
+
+You can deploy both mock and main application by simply invoking `gcloud run deploy`. First deploy the mock of play store reviews API, write url down and pass it to the main application via MOCK_URI environment variable.
+
+For example:
+`gcloud run deploy --set-env-vars "PROJECT_ID=your-project-id" --set-env-vars "MOCK_URI=mock-play-api.somedomain.sometld"`
 
 ## Usage
 
