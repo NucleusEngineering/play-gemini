@@ -172,11 +172,11 @@ func fetchReviews(packageName string, reviewsToFetch int) []*Review {
 
 		}
 
+		fmt.Printf("Fetched %d vs %d\n", fetchedReviews, reviewsToFetch)
+
 		if reviewsResponse.TokenPagination.NextPageToken == "" || fetchedReviews >= reviewsToFetch {
 			break
 		}
-
-		fmt.Printf("Fetched %d vs %d\n", fetchedReviews, reviewsToFetch)
 
 		pageToken = reviewsResponse.TokenPagination.NextPageToken
 	}
@@ -193,6 +193,9 @@ func pushToBigQuery(allReviews []*Review) {
 
 	var bqReviews []*Review
 	for _, review := range allReviews {
+		if review.Version == "" {
+			review.Version = "unknown"
+		}
 
 		bqReviews = append(bqReviews, &Review{
 			ReviewID:         review.ReviewID,
