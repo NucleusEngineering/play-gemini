@@ -4,7 +4,13 @@
     <title>Play Store Review Analyzer</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/default.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
-        <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .hljs-string {
+            white-space: break-spaces;
+            word-wrap: break-word;
+        }
+    </style>
 </head>
 <body class="bg-gray-100 font-sans">
 
@@ -85,7 +91,7 @@
             fetch('/analyze?package_name=' + packageName)
             .then(response => {
                 if (!response.ok) {
-                throw new Error('Network response was not ok');
+                throw new Error('No reviews were found for this package. Try fetching new reviews.');
                 }
                 return response.json(); // Expect JSON response now
             })

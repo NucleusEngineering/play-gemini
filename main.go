@@ -47,12 +47,13 @@ type Review struct {
 }
 
 var (
-	projectID  string
-	bqClient   *bigquery.Client
-	httpClient *http.Client
-	datasetID  string = "play_store_reviews_demo"
-	tableID    string = "raw_reviews"
-	ctx        context.Context
+	projectID     string
+	bqClient      *bigquery.Client
+	httpClient    *http.Client
+	datasetID     string = "play_store_reviews_demo"
+	tableID       string = "raw_reviews"
+	ctx           context.Context
+	reviewsApiUri = "androidpublisher.googleapis.com"
 )
 
 func init() {
@@ -78,7 +79,7 @@ func init() {
 }
 
 func fetchReviews(packageName string, reviewsToFetch int) []*Review {
-	baseURL := fmt.Sprintf("http://localhost:8080/androidpublisher/v3/applications/%s/reviews", packageName) // androidpublisher.googleapis.com
+	baseURL := fmt.Sprintf("https://%s/androidpublisher/v3/applications/%s/reviews", reviewsApiUri, packageName)
 	pageToken := ""
 	var allReviews []*Review // Now a slice of our custom Review struct
 	fetchedReviews := 0
@@ -217,8 +218,8 @@ func preProcessReviewsInBigQuery(packageName string) {
 	// start timer
 	start := time.Now()
 
-	q := bqClient.Query(fmt.Sprintf("CALL `play_store_reviews_demo.pre_process_reviews_in_bq`('%s')", packageName)) // Add dataset name
-	q.Location = "US"                                                                                               // Or your preferred location
+	q := bqClient.Query(fmt.Sprintf("CALL `%s.pre_process_reviews_in_bq`('%s')", datasetID, packageName))
+	q.Location = "US"
 
 	job, err := q.Run(ctx)
 	if err != nil {
@@ -242,9 +243,9 @@ func getVersions(packageName string) []string {
 
 	query := bqClient.Query(fmt.Sprintf(`
 		SELECT DISTINCT version
-		FROM play_store_reviews_demo.reviews_to_process
+		FROM %s.reviews_to_process
 		WHERE app_name = '%s'
-	`, packageName))
+	`, datasetID, packageName))
 
 	it, err := query.Read(ctx)
 	if err != nil {
@@ -272,11 +273,11 @@ func getVersionAnalysis(packageName string, version string) (string, error) {
 
 	query := bqClient.Query(fmt.Sprintf(`
 		SELECT gemini_response
-		FROM play_store_reviews_demo.reviews_to_process
+		FROM %s.reviews_to_process
 		WHERE version = '%s' AND app_name = '%s'
 		ORDER BY created_at DESC
 		LIMIT 1
-	`, version, packageName))
+	`, datasetID, version, packageName))
 
 	it, err := query.Read(ctx)
 	if err != nil {
@@ -406,9 +407,15 @@ func commentHandler(w http.ResponseWriter, r *http.Request) {
 	// Query BigQuery for the comment details
 	query := bqClient.Query(fmt.Sprintf(`
 		SELECT *
-		FROM play_store_reviews_demo.raw_reviews
+		FROM %s.raw_reviews
 		WHERE app_name = '%s' AND review_id = '%s'
-	`, packageName, commentID))
+	`, datasetID, packageName, commentID))
+
+	fmt.Print(fmt.Sprintf(`
+	SELECT *
+	FROM %s.raw_reviews
+	WHERE app_name = '%s' AND review_id = '%s'
+`, datasetID, packageName, commentID))
 
 	it, err := query.Read(ctx)
 	if err != nil {
@@ -430,7 +437,7 @@ func commentHandler(w http.ResponseWriter, r *http.Request) {
 	var commentDetails CommentDetails
 	err = it.Next(&commentDetails)
 	if err != nil {
-		if err == io.EOF {
+		if err == iterator.Done {
 			http.Error(w, "Comment not found", http.StatusNotFound)
 			return
 		}
@@ -445,16 +452,21 @@ func commentHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
+
+	mockURI := os.Getenv("MOCK_URI")
+	if mockURI != "" {
+		reviewsApiUri = mockURI
+	}
+
 	http.HandleFunc("/", homeHandler)
 	http.HandleFunc("/fetch", fetchHandler)
 	http.HandleFunc("/analyze", analyzeHandler)
 	http.HandleFunc("/versionAnalysis", versionAnalysisHandler)
 	http.HandleFunc("/comment", commentHandler)
-
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = "8081"
-	}
 
 	log.Printf("Server listening on port %s", port)
 	log.Fatal(http.ListenAndServe(":"+port, nil))

@@ -25,3 +25,4 @@ go.work.sum
 .env
 .vscode/
 play-gemini
+mock-play-api/mock-play-api

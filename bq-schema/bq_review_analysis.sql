@@ -36,7 +36,7 @@ BEGIN
       LOOP
         -- Construct and execute dynamic query for the current version
         EXECUTE IMMEDIATE FORMAT("""
-        SELECT ml_generate_text_llm_result FROM ML.GENERATE_TEXT(MODEL `play_store_reviews_demo.gemini_remote_model15`,
+        SELECT ml_generate_text_llm_result FROM ML.GENERATE_TEXT(MODEL `play_store_reviews_demo.gemini_model`,
           (
             SELECT 
             '''You are a app review summarizer. From the following text that contains user reviews/comments, create a summary with the overall sentiment outlining positives and negatives. Also, for any negative comments (star_rating <= 3), generate tags describing what is wrong.  The output should be a single JSON object with two fields: "summary" and "details". The "summary" field contains the overall summary, and the "details" field is an array of JSON objects, each with "comment_id" and "tags" (all tags per comment_id, comma separated). Format the output strictly as a JSON object.  You cannot return empty for summary because you know how to pick up sensible data from following input text: ''' || combined_comments AS prompt
