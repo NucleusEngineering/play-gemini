@@ -1,4 +1,4 @@
-# Google Play! Store - Reviews mock api
+# Google Play Store - Reviews mock api
 
 This repository is a mock of the reviews list endpoint from [Google Play Developer API](https://developers.google.com/android-publisher/api-ref/rest/v3/reviews/list).
 

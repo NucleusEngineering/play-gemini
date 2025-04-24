@@ -232,7 +232,7 @@ func fetchReviewItems(ctx context.Context, fetchUrl, appID string, sort Sort, co
 	return reviewItems, token, nil
 }
 
-// TransformReviews transforms reviews into the desired format that mocks real Play! store
+// TransformReviews transforms reviews into the desired format that mocks real Play Store
 func transformReviews(reviewData []map[string]interface{}, pageInfo map[string]int, nextPageToken, previousPageToken string) (string, error) {
 	transformed := ReviewsResponse{
 		Reviews: []TransformedReview{},
@@ -405,6 +405,6 @@ func main() {
 	r := mux.NewRouter()
 	r.HandleFunc("/androidpublisher/v3/applications/{app_id}/reviews", reviewsHandler).Methods("GET")
 
-	fmt.Println("Play! Mock Server listening on port 8080")
+	fmt.Println("Play Store mock server listening on port 8080")
 	http.ListenAndServe(":8080", r)
 }
