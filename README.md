@@ -45,10 +45,11 @@ For example:
 
 The program will guide you through the process:
 
-1. Enter the package name of the app you want to analyze.
-2. The program will fetch reviews from the mock API (or the real API if you modify the code).
-3. It will push the raw reviews to BigQuery.
-4. It will then use a BigQuery stored procedure to process the reviews
+1. Enter the package name of the app you want to analyze. 
+2. Press "Fetch new Reviews". Once the reviews are imported, press "Analyze Imported reviews"
+3. The program will fetch reviews from the mock API (or the real API if you modify the code).
+4. It will push the raw reviews to BigQuery.
+5. It will then use a BigQuery stored procedure to process the reviews
 
 ## Licence
 
