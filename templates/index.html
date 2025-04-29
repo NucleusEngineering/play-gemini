@@ -23,6 +23,16 @@
         </div>
 
         <div class="mb-4">
+            <label for="review_count" class="block text-gray-700 font-bold mb-2">Number of Reviews to Fetch:</label>
+            <select id="review_count" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+                <option value="200">200</option>
+                <option value="500">500</option>
+                <option value="1000">1000</option>
+                <option value="2000">2000</option>
+            </select>
+        </div>        
+
+        <div class="mb-4">
             <button id="fetchBtn" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline mr-2">
                 1. Fetch New Reviews
             </button>
@@ -46,12 +56,13 @@
         const versionsDiv = document.getElementById('versions');
         const analysisDiv = document.getElementById('analysis');
         const commentDiv = document.getElementById('comment');
+        const reviewCountSelect = document.getElementById('review_count');
 
         fetchBtn.addEventListener('click', () => {
             resultsDiv.classList.remove("hidden");
             versionsDiv.classList.add("hidden"); 
             analysisDiv.classList.add("hidden");
-            commentDiv.classList.add("hidden");            
+            commentDiv.classList.add("hidden"); 
 
             const packageName = packageNameInput.value;
             if (!packageName) {
@@ -59,18 +70,44 @@
                 return;
             }
 
-            resultsDiv.innerHTML = 'Fetching reviews... (please wait, this takes time to process)'; // Indicate fetching
-            fetch('/fetch?package_name=' + packageName) // Changed to GET
+            fetchBtn.disabled = true;
+            analyzeBtn.disabled = true;                    
+            fetchBtn.classList.add("disabled:bg-gray-50");
+            fetchBtn.classList.add("disabled:text-gray-500")
+            analyzeBtn.classList.add("disabled:bg-gray-50");
+            analyzeBtn.classList.add("disabled:text-gray-500")
+            
+            const reviewCount = reviewCountSelect.value;
+            resultsDiv.innerHTML = 'Fetching reviews... (please wait, this takes time to process)';
+            fetch(`/fetch?package_name=${packageName}&review_count=${reviewCount}`)
                 .then(response => {
+                    fetchBtn.disabled = false;
+                    analyzeBtn.disabled = false;
+                    fetchBtn.classList.remove("disabled:bg-gray-50");
+                    fetchBtn.classList.remove("disabled:text-gray-500")
+                    analyzeBtn.classList.remove("disabled:bg-gray-50");
+                    analyzeBtn.classList.remove("disabled:text-gray-500")
                     if (!response.ok) {
                         throw new Error('Network response was not ok ' + response.statusText);
                     }
                     return response.text(); // Expecting plain text response
                 })
                 .then(data => {
+                    fetchBtn.disabled = false;
+                    analyzeBtn.disabled = false;
+                    fetchBtn.classList.remove("disabled:bg-gray-50");
+                    fetchBtn.classList.remove("disabled:text-gray-500")
+                    analyzeBtn.classList.remove("disabled:bg-gray-50");
+                    analyzeBtn.classList.remove("disabled:text-gray-500")
                     resultsDiv.innerHTML = data;
                 })
                 .catch(error => {
+                    fetchBtn.disabled = false;
+                    analyzeBtn.disabled = false;
+                    fetchBtn.classList.remove("disabled:bg-gray-50");
+                    fetchBtn.classList.remove("disabled:text-gray-500")
+                    analyzeBtn.classList.remove("disabled:bg-gray-50");
+                    analyzeBtn.classList.remove("disabled:text-gray-500")
                     resultsDiv.innerHTML = 'Error: ' + error;
                 });
         });

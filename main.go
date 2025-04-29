@@ -346,7 +346,12 @@ func fetchHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	reviews := fetchReviews(packageName, 200)
+	reviewCount, err := strconv.Atoi(r.URL.Query().Get("review_count"))
+	if err != nil || reviewCount <= 0 {
+		reviewCount = 200
+	}
+
+	reviews := fetchReviews(packageName, reviewCount)
 	pushToBigQuery(reviews)
 	preProcessReviewsInBigQuery(packageName)
 
@@ -414,11 +419,11 @@ func commentHandler(w http.ResponseWriter, r *http.Request) {
 		WHERE app_name = '%s' AND review_id = '%s'
 	`, datasetID, packageName, commentID))
 
-	fmt.Print(fmt.Sprintf(`
+	fmt.Printf(`
 	SELECT *
 	FROM %s.raw_reviews
 	WHERE app_name = '%s' AND review_id = '%s'
-`, datasetID, packageName, commentID))
+`, datasetID, packageName, commentID)
 
 	it, err := query.Read(ctx)
 	if err != nil {
