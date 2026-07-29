@@ -1,0 +1,49 @@
+[
+    {
+        "name": "app_name",
+        "type": "STRING",
+        "mode": "REQUIRED"
+    },    
+    {
+        "name": "review_id",
+        "type": "STRING",
+        "mode": "REQUIRED",
+        "description": "Unique identifier for the review"
+    },
+    {
+        "name": "author_name",
+        "type": "STRING",
+        "mode": "NULLABLE",
+        "description": "Name of the reviewer"
+    },
+    {
+        "name": "version",
+        "type": "STRING",
+        "mode": "NULLABLE",
+        "description": "Version of the app being reviewed"
+    },
+    {
+        "name": "comments",
+        "type": "STRING",
+        "mode": "NULLABLE",
+        "description": "The review text"
+    },
+    {
+        "name": "star_rating",
+        "type": "INTEGER",
+        "mode": "NULLABLE",
+        "description": "Star rating (1-5)"
+    },
+    {
+        "name": "last_modified",
+        "type": "TIMESTAMP",
+        "mode": "REQUIRED",
+        "description": "Timestamp of the last modification"
+    },
+    {
+        "name": "reviewer_language",
+        "type": "STRING",
+        "mode": "NULLABLE",
+        "description": "Language of the review"
+    }
+]
